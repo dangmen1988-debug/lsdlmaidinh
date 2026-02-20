@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="vi" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WW1 History Game - Detailed Edition</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Be Vietnam Pro', sans-serif; user-select: none; }
+    .game-canvas { image-rendering: pixelated; cursor: crosshair; background: #020205; }
+    
+    .btn-military {
+      background: linear-gradient(180deg, #5d4e37 0%, #3d3225 100%);
+      border: 3px solid #2a2318; color: #f3e5ab;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 0 #1a1510;
+      transition: all 0.1s; font-weight: bold;
+    }
+    .btn-military:hover { transform: translateY(-2px); filter: brightness(1.1); }
+    .telegram { background: #fdf5e6; border: 2px solid #5d4e37; position: relative; }
+    #game-container { width: 800px; height: 450px; overflow: hidden; border: 8px solid #2a2318; border-radius: 12px; position: relative; background: #000; }
+    
+    #player-question-bubble {
+        position: absolute; background: rgba(255, 255, 255, 0.95); border: 3px solid #3d3225;
+        padding: 12px 20px; border-radius: 20px; max-width: 450px; font-weight: 800; font-size: 16px;
+        color: #1a1510; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 25; pointer-events: none;
+    }
+    
+    @keyframes loading { 0% { width: 0%; } 100% { width: 100%; } }
+    .screen-overlay { transition: opacity 0.5s ease-in-out; }
+  </style>
+ </head>
+ <body class="h-full bg-stone-950 flex items-center justify-center p-4">
+  <div id="game-container" class="relative shadow-[0_0_100px_rgba(0,0,0,1)]">
+   <canvas id="gameCanvas" width="800" height="450" class="game-canvas"></canvas>
+   
+   <div id="player-question-bubble" class="hidden" style="top: 30px; left: 50%; transform: translateX(-50%);"></div>
+
+   <div id="hud" class="absolute top-4 left-4 flex gap-4 pointer-events-none items-center z-10">
+    <div class="bg-black/60 px-4 py-2 rounded-full border border-white/20 flex items-center gap-1 shadow-lg">
+        <div id="hearts-container" class="flex text-red-500 text-xl"></div>
+    </div>
+    <div id="ammo-ui" class="hidden bg-black/60 px-4 py-2 rounded-full border border-amber-500/40 text-amber-400 font-black text-[10px] shadow-lg">
+        GIAO TRANH: <span id="ammo-count">TIÊU DIỆT KẺ ĐỊCH CÓ ĐÁP ÁN SAI</span>
+    </div>
+   </div>
+   <div id="level-display" class="absolute top-4 right-4 text-amber-200 text-[10px] font-black pointer-events-none bg-black/60 px-4 py-2 rounded border border-white/20 z-10 tracking-[0.2em] uppercase"></div>
+
+   <!-- Question Popup (Màn 1) -->
+   <div id="question-popup" class="absolute inset-0 flex items-center justify-center hidden bg-black/70 backdrop-blur-md z-20">
+    <div class="telegram p-6 max-w-sm mx-4 transform shadow-2xl border-4 border-double border-stone-800">
+     <div class="text-[9px] text-stone-500 mb-2 uppercase tracking-tighter italic font-bold">Điện tín hỏa tốc</div>
+     <p id="question-text" class="text-stone-900 text-base font-bold mb-4 leading-tight border-b-2 border-stone-300 pb-3"></p>
+     <div id="answers" class="grid grid-cols-1 gap-2"></div>
+     <div id="feedback-container" class="hidden mt-4 border-t-2 border-stone-300 pt-3">
+         <p id="feedback" class="text-center text-sm font-black uppercase mb-1"></p>
+         <p id="explanation" class="text-stone-700 text-[10px] italic text-center mb-4 leading-relaxed"></p>
+         <button id="next-q-btn" class="btn-military w-full py-2 text-[10px] uppercase tracking-widest">Tiếp tục hành quân</button>
+     </div>
+    </div>
+   </div>
+
+   <!-- Negotiate Popup (Màn 3) -->
+   <div id="negotiate-popup" class="absolute inset-0 flex items-center justify-center hidden bg-black/70 backdrop-blur-md z-20">
+    <div class="telegram p-8 max-w-xl mx-4 transform shadow-2xl border-double border-8 border-stone-600">
+     <h3 class="text-center text-stone-800 font-black mb-4 border-b-2 border-stone-400 uppercase text-xl">Báo Cáo Đại Tướng</h3>
+     <p id="negotiate-text" class="text-stone-900 text-lg font-bold mb-4 italic text-center"></p>
+     <div class="mb-6">
+         <textarea id="negotiate-input" class="bg-stone-100 border-2 border-stone-400 h-24 p-4 text-center text-lg w-full outline-none focus:border-stone-600" placeholder="Viết câu trả lời..."></textarea>
+     </div>
+     <button id="submit-negotiate" class="btn-military w-full py-4 uppercase tracking-widest font-black text-lg">Gửi Báo Cáo</button>
+    </div>
+   </div>
+
+   <!-- Screen Overlays -->
+   <div id="transition-screen" class="absolute inset-0 bg-black flex items-center justify-center hidden z-40 screen-overlay">
+       <div class="text-center">
+           <h2 id="transition-title" class="text-white text-5xl font-black italic text-amber-500 mb-6"></h2>
+           <div class="w-64 h-2 bg-stone-900 mx-auto rounded-full overflow-hidden border border-white/10">
+               <div class="h-full bg-amber-600 animate-[loading_2s_ease-in-out_infinite]"></div>
+           </div>
+       </div>
+   </div>
+
+   <div id="victory-screen" class="absolute inset-0 bg-stone-950 flex flex-col items-center justify-center hidden z-50">
+       <h1 class="text-amber-500 text-7xl font-black mb-2">KHẢI HOÀN</h1>
+       <p class="text-stone-400 uppercase tracking-[0.5em] text-sm mb-8">Hòa bình đã lập lại trên toàn thế giới</p>
+       <button onclick="location.reload()" class="btn-military px-16 py-4 text-xl">TRỞ VỀ THÀNH PHỐ</button>
+   </div>
+
+   <div id="gameover-screen" class="absolute inset-0 bg-red-950/90 flex flex-col items-center justify-center hidden z-50 backdrop-blur-lg">
+       <h1 class="text-white text-7xl font-black mb-6">HY SINH</h1>
+       <button onclick="location.reload()" class="btn-military bg-red-800 border-red-950 px-16 py-5 text-2xl">THỬ LẠI CHIẾN DỊCH</button>
+   </div>
+
+   <div id="start-screen" class="absolute inset-0 bg-[radial-gradient(circle_at_center,_#3e2b1f_0%,_#0c0c0c_100%)] flex flex-col items-center justify-center z-30">
+    <div class="relative mb-12 text-center">
+        <h1 class="text-amber-600 text-8xl font-black drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)]">WW1</h1>
+        <h2 class="text-amber-100 text-2xl font-black tracking-[0.4em] uppercase mt-[-10px]">Hành Trình Chi Tiết</h2>
+    </div>
+    <button id="start-btn" class="btn-military px-24 py-8 text-3xl uppercase animate-pulse">Bắt đầu sứ mệnh</button>
+   </div>
+
+   <!-- Custom Cursor (Tâm ngắm) -->
+   <div id="custom-cursor" class="fixed pointer-events-none w-16 h-16 hidden z-50">
+        <svg viewBox="0 0 40 40" class="w-full h-full stroke-red-500 fill-none stroke-[2]">
+            <circle cx="20" cy="20" r="15" opacity="0.4" stroke-dasharray="4 2"/>
+            <line x1="20" y1="0" x2="20" y2="10" /><line x1="20" y1="30" x2="20" y2="40" />
+            <line x1="0" y1="20" x2="10" y2="20" /><line x1="30" y1="20" x2="40" y2="20" />
+            <circle cx="20" cy="20" r="1.5" fill="red" stroke="none"/>
+        </svg>
+   </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const cursor = document.getElementById('custom-cursor');
+
+    const audioManager = {
+        ctx: null, mainGain: null, bgmInterval: null,
+        init() {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.mainGain = this.ctx.createGain(); this.mainGain.connect(this.ctx.destination);
+            this.mainGain.gain.value = 0.3;
+        },
+        playDrum(time, type = 'snare') {
+            const noise = this.ctx.createBufferSource();
+            const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.1, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
+            noise.buffer = buffer;
+            const noiseFilter = this.ctx.createBiquadFilter(); noiseFilter.type = 'highpass';
+            noiseFilter.frequency.value = type === 'snare' ? 1000 : 100;
+            const noiseGain = this.ctx.createGain(); noiseGain.gain.setValueAtTime(type === 'snare' ? 0.1 : 0.2, time);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+            noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(this.mainGain); noise.start(time);
+        },
+        playNote(freq, startTime, duration, type = 'triangle') {
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0, startTime); gain.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            osc.connect(gain); gain.connect(this.mainGain); osc.start(startTime); osc.stop(startTime + duration);
+        },
+        playBGM(type) {
+            if (!this.ctx) return; if (this.bgmInterval) clearInterval(this.bgmInterval);
+            let beat = 0;
+            if (type === 'war') {
+                const warMelody = [110, 110, 123, 130]; 
+                this.bgmInterval = setInterval(() => {
+                    const now = this.ctx.currentTime;
+                    this.playDrum(now, 'snare');
+                    if (beat % 4 === 0) this.playDrum(now, 'kick');
+                    if (beat % 2 === 0) this.playNote(warMelody[(beat/2)%4], now, 0.4, 'sawtooth');
+                    beat++;
+                }, 200);
+            } else {
+                const peaceMelody = [261, 329, 392, 523];
+                this.bgmInterval = setInterval(() => {
+                    const now = this.ctx.currentTime;
+                    if (beat % 4 === 0) this.playNote(peaceMelody[(beat/4)%4], now, 1.5, 'sine');
+                    beat++;
+                }, 400);
+            }
+        },
+
+        playEffect(freq, type = 'square', duration = 0.1, volume = 0.1) {
+            if (!this.ctx) return;
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + duration);
+            gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        },
+
+        playBackgroundMusic(mode) {
+            if (!this.ctx) return;
+            if (this.currentMode === mode) return;
+            this.currentMode = mode;
+            if (this.warMusic) this.warMusic.pause();
+            if (this.transitionMusic) this.transitionMusic.pause();
+            if (mode === 'war') this.warMusic.play();
+            if (mode === 'transition') this.transitionMusic.play();
+        }
+    };
+
+    let gameState = {
+        active: false, level: 1, lives: 5, scrollX: 0, animFrame: 0, currentQuestion: 0,
+        autoSpeed: 3.5, 
+        player: { x: 130, y: 285, eyeTimer: 0, walkCycle: 0 },
+        enemies: [], muzzleFlash: 0, 
+        particles: Array.from({length: 30}, () => ({ x: Math.random()*800, y: Math.random()*450, s: Math.random()*1.5+0.5, op: Math.random() })),
+        clouds: Array.from({length: 6}, () => ({ x: Math.random() * 2000, y: 30 + Math.random() * 80, speed: 0.2 + Math.random()*0.3, w: 100 + Math.random()*50 })),
+        mountains: Array.from({length: 4}, (_, i) => ({ x: i * 300, w: 400 + Math.random()*200, h: 150 + Math.random()*100, color: '#1e2b3d' })),
+        decor: Array.from({length: 80}, (_, i) => {
+            const types = ['grass', 'stone', 'wire', 'ammo', 'broken_rifle'];
+            return { 
+                x: i * 120 + Math.random() * 60, 
+                type: types[Math.floor(Math.random() * types.length)],
+                rotation: Math.random() * Math.PI
+            };
+        }),
+        trenches: [{ x: 1200, triggered: false }, { x: 2500, triggered: false }, { x: 3800, triggered: false }, { x: 5100, triggered: false }, { x: 6400, triggered: false }],
+        questions: [
+            { q: "Mâu thuẫn chủ yếu dẫn đến cuộc chiến này là gì?", a: ["Tranh chấp thuộc địa", "Khác biệt tôn giáo", "Tranh giành nguồn nước"], correct: 0, explanation: "Sự phát triển không đều khiến các đế quốc mâu thuẫn gắt gao về thị trường và thuộc địa." },
+            { q: "Phe Hiệp ước bao gồm những cường quốc nào?", a: ["Đức, Áo-Hung, Ý", "Anh, Pháp, Nga", "Mỹ, Nhật, Trung Quốc"], correct: 1, explanation: "Khối Hiệp ước (Triple Entente) gồm Anh, Pháp, Nga đối đầu với phe Liên minh." },
+            { q: "Ngòi nổ trực tiếp của cuộc chiến là vụ ám sát ở đâu?", a: ["Béc-lin", "Luân Đôn", "Xê-ra-vê-ô (Xéc-bi)"], correct: 2, explanation: "Thái tử Áo-Hung bị ám sát tại Sarajevo là ngòi nổ bùng nổ chiến tranh." },
+            { q: "Cuộc chiến này mang tính chất gì?", a: ["Chính nghĩa", "Phi nghĩa (Đế quốc)", "Tự vệ dân tộc"], correct: 1, explanation: "Đây là cuộc chiến tranh tranh giành quyền lợi của các đế quốc, gây đau khổ cho nhân dân." },
+            { q: "Vũ khí mới nào được dùng lần đầu trong WW1?", a: ["Hơi độc & Xe tăng", "Bom nguyên tử", "Máy bay phản lực"], correct: 0, explanation: "Hơi độc và xe tăng là những công nghệ mới xuất hiện gây kinh hoàng trên chiến trường." }
+        ],
+        level2Questions: [
+            { q: "Sự kiện nào ở Nga năm 1917 làm thay đổi cục diện?", a: ["Cách mạng tháng Mười", "Nga đầu hàng Đức"], correct: 0, explanation: "Cách mạng thành công đưa nước Nga rút khỏi chiến tranh." },
+            { q: "Năm 1917, vì sao Mỹ quyết định tham gia chiến tranh?", a: ["Bảo vệ hòa bình", "Bảo vệ quyền lợi kinh tế"], correct: 1, explanation: "Mỹ tham chiến để đảm bảo vị thế và kinh tế khi cục diện đã rõ." }
+        ],
+        level3Questions: [
+            { q: "Tướng quân: 'Tính chất cuối cùng của cuộc chiến này là gì?'", keywords: ["phi nghĩa", "xâm lược", "đế quốc"] },
+            { q: "Tướng quân: 'Điều gì đã giúp Nga rút khỏi cuộc chiến này sớm?'", keywords: ["cách mạng", "tháng mười", "10"] }
+        ],
+        showQuestion: false, transitioning: false, officerMet: false, gameOver: false
+    };
+
+    // Khởi tạo phông nền chi tiết
+    for(let i=0; i<10; i++) {
+        gameState.mountains.push({ x: i * 250, w: 300 + Math.random()*200, h: 100 + Math.random()*200, c: '#080812' });
+    }
+    for(let i=0; i<12; i++) {
+        gameState.clouds.push({ x: Math.random()*1200, y: 30 + Math.random()*120, s: 0.1 + Math.random()*0.3, w: 80 + Math.random()*150 });
+    }
+    for(let i = 0; i < 60; i++) {
+        gameState.groundItems.push({ x: 500 + i * 180 + Math.random()*100, type: ['wire', 'gun', 'ammo', 'shell'][Math.floor(Math.random()*4)], flip: Math.random() > 0.5 });
+    }
+
+    function update() {
+        if (!gameState.active || gameState.showQuestion || gameState.transitioning || gameState.gameOver) return;
+        
+        // Tốc độ thay đổi theo màn
+        if (gameState.currentQuestion < 1) gameState.speed = 5.5; 
+        else if (gameState.currentQuestion === 1) gameState.speed = 3.5;
+        else gameState.speed = 2.0;
+
+        gameState.animFrame += 0.15;
+        gameState.player.eyeTimer++;
+        gameState.player.walkCycle += gameState.speed * 0.06;
+        if(gameState.muzzleFlash > 0) gameState.muzzleFlash--;
+        gameState.scrollX += gameState.speed;
+
+        audioManager.playBackgroundMusic(gameState.currentQuestion < 2 ? 'war' : 'transition');
+
+        // Mây trôi
+        gameState.clouds.forEach(c => {
+            c.x -= c.speed;
+            if (c.x + c.w < 0) c.x = 2000;
+        });
+
+        // Cập nhật hạt bụi
+        gameState.particles.forEach(p => {
+            p.x -= 0.5; if(p.x < 0) p.x = 800;
+        });
+
+        // Máy bay rõ ràng hơn
+        if (Math.random() < 0.015 && gameState.currentQuestion < 2) {
+            gameState.airplanes.push({ x: 900, y: 30 + Math.random() * 80, speed: 3.5 + Math.random() * 1.5 });
+        }
+        gameState.airplanes.forEach((p, i) => {
+            p.x -= p.speed;
+            if (Math.random() < 0.04) gameState.bombs.push({ x: p.x + 30, y: p.y + 20, vy: 5.5 });
+            if (p.x < -200) gameState.airplanes.splice(i, 1);
+        });
+
+        // Bom và Nổ
+        gameState.bombs.forEach((b, i) => {
+            b.y += b.vy;
+            if (b.y > 360) {
+                gameState.explosions.push({ x: b.x, y: 360, life: 1, size: 45 });
+                for(let j=0; j<12; j++) {
+                    gameState.debris.push({ x: b.x, y: 360, vx: (Math.random()-0.5)*14, vy: -Math.random()*16, life: 1 });
+                }
+                gameState.bombs.splice(i, 1);
+            }
+        });
+
+        gameState.explosions.forEach((ex, i) => {
+            ex.life -= 0.04;
+            ex.size += 1.5;
+            if (ex.life <= 0) gameState.explosions.splice(i, 1);
+        });
+
+        gameState.debris.forEach((d, i) => {
+            d.x += d.vx; d.y += d.vy; d.vy += 0.55; d.life -= 0.025;
+            if (d.life <= 0) gameState.debris.splice(i, 1);
+        });
+
+        if (gameState.level === 1) {
+            gameState.trenches.forEach((t, i) => {
+                if(!t.triggered && (gameState.scrollX + gameState.player.x) > t.x) { 
+                    t.triggered = true; gameState.currentQuestion = i; triggerQuestion(); 
+                }
+            });
+            if (gameState.scrollX > 7500) { 
+                triggerTransition("MÀN 2: TRẬN ĐÁNH TƯ DUY", () => {
+                    gameState.level = 2; gameState.currentQuestion = 0; gameState.scrollX = 0;
+                    document.getElementById('ammo-ui').classList.remove('hidden');
+                    document.getElementById('player-question-bubble').classList.remove('hidden');
+                });
+            }
+        } 
+        else if (gameState.level === 2) {
+            const currentQ = gameState.level2Questions[gameState.currentQuestion];
+            if(currentQ) {
+                document.getElementById('player-question-bubble').textContent = currentQ.q;
+                if (gameState.enemies.length === 0) {
+                    currentQ.a.forEach((ans, i) => {
+                        // Kẻ địch đứng gần nhau hơn (khoảng cách 200 thay vì 350)
+                        gameState.enemies.push({ 
+                            x: 900 + (i * 200), 
+                            y: 285, 
+                            answerIndex: i, 
+                            text: ans, 
+                            label: String.fromCharCode(65+i), 
+                            dead: false 
+                        });
+                    });
+                }
+            } else {
+                document.getElementById('player-question-bubble').classList.add('hidden');
+                triggerTransition("MÀN 3: HIỆP ƯỚC HÒA BÌNH", () => {
+                    gameState.level = 3; gameState.scrollX = 0; gameState.currentQuestion = 0;
+                    document.getElementById('ammo-ui').classList.add('hidden');
+                    audioManager.playBGM('peace');
+                });
+            }
+
+            gameState.enemies.forEach((en, i) => {
+                if(!en.dead) { 
+                    // Tốc độ kẻ địch chậm lại (1.2 thay vì 2.0)
+                    en.x -= 1.2; 
+                    if(en.x < 150) { 
+                        gameState.enemies = []; 
+                        gameState.lives--; 
+                        audioManager.playEffect('wrong'); 
+                        if(gameState.lives <= 0) endGame(); 
+                    } 
+                }
+                else { 
+                    en.y += 15; 
+                    if(en.y > 500) gameState.enemies.splice(i, 1); 
+                }
+            });
+        }
+        else if (gameState.level === 3 && !gameState.officerMet) {
+            if(gameState.scrollX >= 400) { gameState.officerMet = true; gameState.autoSpeed = 0; triggerNegotiate(); }
+        }
+        updateHUD();
+    }
+
+    function triggerQuestion() {
+        gameState.showQuestion = true;
+        const q = gameState.questions[gameState.currentQuestion];
+        document.getElementById('question-popup').classList.remove('hidden');
+        document.getElementById('question-text').textContent = q.q;
+        const container = document.getElementById('answers'); container.innerHTML = '';
+        document.getElementById('feedback-container').classList.add('hidden');
+        q.a.forEach((a, i) => {
+            const b = document.createElement('button');
+            b.className = "btn-military py-2 px-4 mb-2 w-full text-left text-xs"; b.textContent = a;
+            b.onclick = () => {
+                const ok = i === q.correct;
+                document.getElementById('feedback-container').classList.remove('hidden');
+                document.getElementById('feedback').textContent = ok ? "CHÍNH XÁC!" : "SAI RỒI!";
+                document.getElementById('feedback').className = ok ? "text-center font-black text-green-700" : "text-center font-black text-red-700";
+                document.getElementById('explanation').textContent = q.explanation;
+                if(ok) audioManager.playEffect('correct'); else { audioManager.playEffect('wrong'); gameState.lives--; if(gameState.lives<=0) endGame(); }
+                document.getElementById('next-q-btn').onclick = () => { gameState.showQuestion = false; document.getElementById('question-popup').classList.add('hidden'); };
+            };
+            container.appendChild(b);
+        });
+    }
+
+    function triggerNegotiate() {
+        const q = gameState.level3Questions[gameState.currentQuestion];
+        if(!q) { document.getElementById('negotiate-popup').classList.add('hidden'); document.getElementById('victory-screen').classList.remove('hidden'); return; }
+        document.getElementById('negotiate-popup').classList.remove('hidden');
+        document.getElementById('negotiate-text').textContent = q.q;
+        document.getElementById('negotiate-input').value = "";
+    }
+
+    document.getElementById('submit-negotiate').onclick = () => {
+        const input = document.getElementById('negotiate-input').value.toLowerCase();
+        const q = gameState.level3Questions[gameState.currentQuestion];
+        if(q.keywords.some(k => input.includes(k))) { audioManager.playEffect('correct'); gameState.currentQuestion++; triggerNegotiate(); }
+        else { audioManager.playEffect('wrong'); gameState.lives--; if(gameState.lives<=0) endGame(); }
+    };
+
+    function endGame() { gameState.gameOver = true; document.getElementById('gameover-screen').classList.remove('hidden'); }
+
+    function draw() {
+        ctx.clearRect(0, 0, 800, 450);
+        
+        // Bầu trời đêm sâu
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, 350);
+        skyGrad.addColorStop(0, '#010103');
+        skyGrad.addColorStop(1, '#0b0b18');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, 800, 350);
+
+        // Mây mờ
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+        gameState.clouds.forEach(c => {
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, c.w/2, 15, 0, 0, Math.PI*2); ctx.fill();
+        });
+
+        // Mountains (Parallax)
+        gameState.mountains.forEach((m, i) => {
+            const mx = (m.x - gameState.scrollX * 0.1) % 1200;
+            ctx.fillStyle = m.color;
+            ctx.beginPath();
+            ctx.moveTo(mx, 350);
+            ctx.lineTo(mx + m.w / 2, 350 - m.h);
+            ctx.lineTo(mx + m.w, 350);
+            ctx.fill();
+            ctx.fillStyle = '#2c3e50';
+            ctx.beginPath();
+            ctx.moveTo(mx + m.w / 2, 350 - m.h);
+            ctx.lineTo(mx + m.w / 2 - 30, 350 - m.h + 40);
+            ctx.lineTo(mx + m.w / 2 + 30, 350 - m.h + 40);
+            ctx.fill();
+        });
+
+        // Decor
+        gameState.decor.forEach(d => {
+            const dx = d.x - gameState.scrollX;
+            if(dx > -100 && dx < 900) {
+                ctx.save();
+                ctx.translate(dx, 350);
+                if(d.type === 'grass') {
+                    ctx.strokeStyle = '#2d3a1a'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-3,-10); ctx.moveTo(0,0); ctx.lineTo(3,-12); ctx.stroke();
+                } else if(d.type === 'stone') {
+                    ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(0, -2, 4, 0, 7); ctx.fill();
+                } else if(d.type === 'wire') {
+                    ctx.strokeStyle = '#444'; ctx.lineWidth = 1;
+                    ctx.beginPath(); 
+                    for(let i=0; i<3; i++) ctx.arc(i*10, -5, 8, 0, Math.PI); 
+                    ctx.stroke();
+                } else if(d.type === 'ammo') {
+                    ctx.fillStyle = '#b8860b'; ctx.fillRect(0, -2, 6, 2);
+                } else if(d.type === 'broken_rifle') {
+                    ctx.fillStyle = '#3d2b1f'; ctx.fillRect(0, -3, 15, 3);
+                    ctx.fillStyle = '#111'; ctx.fillRect(15, -3, 10, 2);
+                }
+                ctx.restore();
+            }
+        });
+
+        // Trenches
+        gameState.trenches.forEach(t => {
+            const tx = t.x - gameState.scrollX;
+            if(tx > -150 && tx < 850) {
+                ctx.fillStyle = '#050505'; ctx.fillRect(tx, 350, 150, 100);
+                ctx.fillStyle = '#2a1a0a'; ctx.fillRect(tx, 350, 5, 100); ctx.fillRect(tx+145, 350, 5, 100);
+            }
+        });
+
+        // Hạt bụi
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        gameState.particles.forEach(p => {
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 7); ctx.fill();
+        });
+
+        // Mặt đất tối sẫm
+        ctx.fillStyle = '#080604';
+        ctx.fillRect(0, 350, 800, 100);
+
+        // Vật phẩm trên đất
+        gameState.groundItems.forEach(item => {
+            const ix = item.x - gameState.scrollX;
+            if (ix > -100 && ix < 900) drawDetailedItem(ix, 350, item.type, item.flip);
+        });
+
+        // Hào chiến và bao cát
+        gameState.trenches.forEach(t => {
+            const tx = t.x - gameState.scrollX;
+            if (tx > -150 && tx < 950) {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(tx, 350, 130, 100);
+                ctx.fillStyle = '#1e1a14';
+                for(let j=0; j<4; j++) {
+                    drawSandbag(tx - 25, 350 - j*7);
+                    drawSandbag(tx + 120, 350 - j*7);
+                }
+            }
+        });
+
+        // Nhân vật chi tiết
+        drawDetailedPlayer(gameState.player.x, gameState.player.y, '#4b5320', false, gameState.muzzleFlash > 0);
+
+        // Máy bay cánh kép chi tiết
+        gameState.airplanes.forEach(p => drawBiplane(p.x, p.y));
+
+        // Bom
+        ctx.fillStyle = '#000';
+        gameState.bombs.forEach(b => { ctx.beginPath(); ctx.ellipse(b.x, b.y, 4, 10, 0, 0, Math.PI*2); ctx.fill(); });
+
+        // Hiệu ứng nổ rực rỡ
+        gameState.explosions.forEach(ex => {
+            const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, ex.size);
+            grad.addColorStop(0, `rgba(255, 255, 150, ${ex.life})`);
+            grad.addColorStop(0.3, `rgba(255, 150, 0, ${ex.life*0.8})`);
+            grad.addColorStop(0.6, `rgba(150, 50, 0, ${ex.life*0.5})`);
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(ex.x, ex.y, ex.size, 0, Math.PI*2); ctx.fill();
+        });
+
+        // Mảnh vỡ rực lửa
+        gameState.debris.forEach(d => { 
+            ctx.globalAlpha = d.life;
+            ctx.fillStyle = Math.random() > 0.5 ? '#ffaa00' : '#ff4400';
+            ctx.fillRect(d.x, d.y, 3, 3); 
+        });
+        ctx.globalAlpha = 1;
+
+        requestAnimationFrame(draw);
+    }
+
+    function drawSandbag(x, y) {
+        ctx.beginPath(); ctx.roundRect(x, y - 8, 35, 10, 3); ctx.fill();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 0.5; ctx.stroke();
+    }
+
+    function drawBiplane(x, y) {
+        ctx.fillStyle = '#121412';
+        // Thân
+        ctx.fillRect(x, y + 15, 70, 10);
+        // Cánh trên
+        ctx.fillRect(x + 10, y, 50, 5);
+        // Cánh dưới
+        ctx.fillRect(x + 10, y + 25, 50, 5);
+        // Thanh nối cánh
+        ctx.fillRect(x + 15, y, 2, 30);
+        ctx.fillRect(x + 50, y, 2, 30);
+        // Đuôi
+        ctx.beginPath(); ctx.moveTo(x + 70, y + 15); ctx.lineTo(x + 85, y + 5); ctx.lineTo(x + 85, y + 25); ctx.fill();
+        // Cánh quạt
+        ctx.fillStyle = '#333';
+        const prop = Math.sin(Date.now()*0.05) * 15;
+        ctx.fillRect(x - 2, y + 20 - prop/2, 2, prop);
+    }
+
+    function drawDetailedItem(x, y, type, flip) {
+        ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1);
+        ctx.lineWidth = 1.5;
+        if (type === 'wire') {
+            ctx.strokeStyle = '#1a1a1a'; ctx.beginPath();
+            for(let i=0; i<4; i++) {
+                ctx.arc(i*12, -6, 10, 0, Math.PI*2);
+                ctx.moveTo(i*12 + 5, -6); ctx.lineTo(i*12 - 5, -10); // Gai
+            }
+            ctx.stroke();
+        } else if (type === 'gun') {
+            ctx.fillStyle = '#0a0a0a'; 
+            ctx.fillRect(0, -6, 45, 4); // Nòng
+            ctx.fillStyle = '#2d1b0a'; ctx.fillRect(0, -4, 15, 6); // Báng gỗ
+        } else if (type === 'ammo') {
+            ctx.fillStyle = '#2a1b0a'; ctx.fillRect(0, -10, 15, 10); // Hòm đạn
+        } else if (type === 'shell') {
+            ctx.fillStyle = '#333'; ctx.beginPath(); ctx.ellipse(0, -3, 8, 3, 0, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    function drawDetailedPlayer(x, y) {
+        const bounce = Math.sin(gameState.player.walkCycle) * 6;
+        const legSwing = Math.sin(gameState.player.walkCycle) * 18;
+        
+        ctx.save();
+        ctx.translate(x + 20, y + 40 + bounce);
+    // Vẽ Nhân vật chi tiết
+        drawPlayer(gameState.player.x, gameState.player.y, '#4b5320', false, gameState.muzzleFlash > 0);
+        
+        if(gameState.level === 2) {
+            gameState.enemies.forEach(en => {
+                drawSoldier(en.x, en.y, '#3e4444', true);
+                
+                // Vẽ câu trả lời dưới chân tên địch
+                ctx.save();
+                ctx.translate(en.x - 15, en.y + 70);
+                // Nền nhãn
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                const labelWidth = ctx.measureText(en.text).width + 20;
+                ctx.roundRect(-labelWidth/2 + 15, 0, labelWidth, 24, 5);
+                ctx.fill();
+                // Chữ nhãn
+                ctx.fillStyle = '#f3e5ab';
+                ctx.font = 'bold 12px Be Vietnam Pro';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${en.label}: ${en.text}`, 15, 16);
+                ctx.restore();
+            });
+        } else if(gameState.level === 3) {
+            drawOfficer(650, 270);
+        }
+
+        requestAnimationFrame(draw);
+    }
+
+    function drawPlayer(x, y, color, isEnemy, shooting) {
+        const bounce = Math.sin(gameState.player.walkCycle) * 4;
+        const blink = (gameState.player.eyeTimer % 180 < 10);
+        const legMovement = Math.sin(gameState.player.walkCycle) * 12;
+        
+        ctx.save();
+        ctx.translate(x + 20, y + 40 + bounce);
+        if(isEnemy) ctx.scale(-1, 1);
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(15, 65 - bounce, 15, 5, 0, 0, 7); ctx.fill();
+
+        // Balo & Trang bị
+        ctx.fillStyle = '#3a3d24';
+        ctx.roundRect(-25, -30, 15, 30, 4);
+        ctx.fill();
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-25, -30, 15, 30);
+
+        // Thân quân phục
+        ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(0, 0, 30, 50, 5); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1;
+        ctx.strokeRect(5, 10, 8, 8); ctx.strokeRect(17, 10, 8, 8);
+        ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0, 30, 30, 4);
+        
+        // Thắt lưng
+        ctx.fillStyle = '#2d1e12';
+        ctx.fillRect(-16, -10, 37, 7);
+
+        // Đầu
+        ctx.fillStyle = '#e8be9e';
+        ctx.beginPath();
+        ctx.arc(5, -50, 15, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath();
+        ctx.arc(5, -45, 15, 0, Math.PI);
+        ctx.fill();
+
+        // Mũ Brodie
+        ctx.fillStyle = '#3a4120';
+        ctx.beginPath();
+        ctx.ellipse(5, -58, 22, 12, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(5, -60, 13, Math.PI, 0);
+        ctx.fill();
+
+        // Mắt
+        if(!blink) {
+            ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(10, -12, 3, 0, 7); ctx.arc(20, -12, 3, 0, 7); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(11, -12, 1.5, 0, 7); ctx.arc(21, -12, 1.5, 0, 7); ctx.fill();
+        }
+
+        // Chân
+        ctx.fillStyle = '#454d26';
+        ctx.fillRect(-10, 15, 12, 20 + legMovement/2);
+        ctx.fillRect(12, 15, 12, 20 - legMovement/2);
+        ctx.fillStyle = '#1a130d';
+        ctx.fillRect(-12, 35 + legMovement/2, 16, 8);
+        ctx.fillRect(10, 35 - legMovement/2, 16, 8);
+
+        // Tay cầm súng ngang hông
+        ctx.fillStyle = '#454d26';
+        ctx.fillRect(-5, -25, 10, 25);
+
+        // Cánh tay cầm báng súng
+        ctx.fillStyle = '#555d30';
+        ctx.save();
+        ctx.translate(0, -20);
+        ctx.rotate(0.3);
+        ctx.fillRect(0, 0, 10, 25);
+        ctx.fillStyle = '#e8be9e'; 
+        ctx.fillRect(0, 25, 10, 8);
+
+        // Súng trường chi tiết
+        ctx.save();
+        ctx.translate(20, 20);
+        if(shooting && !isEnemy) ctx.rotate(-0.1);
+        ctx.fillStyle = '#3d2b1f'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-20, 10); ctx.lineTo(-20, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, 50, 5); ctx.fillRect(5, 5, 10, 5);
+        
+        if(shooting && !isEnemy) {
+            ctx.fillStyle = '#ffaa00'; ctx.beginPath(); ctx.arc(55, 2, 12, 0, 7); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(55, 2, 6, 0, 7); ctx.fill();
+        }
+        ctx.restore();
+        
+        ctx.restore();
+
+    }
+
+    function drawOfficer(x, y) {
+        const bounce = Math.sin(gameState.animFrame * 0.5) * 2;
+        ctx.save(); ctx.translate(x, y + bounce);
+        ctx.fillStyle = '#0d1b3e'; ctx.beginPath(); ctx.roundRect(0, 0, 40, 70, 8); ctx.fill();
+        ctx.fillStyle = '#ffd700'; ctx.fillRect(-5, 5, 12, 6); ctx.fillRect(33, 5, 12, 6);
+        ctx.fillStyle = '#c0392b'; ctx.fillRect(10, 15, 20, 2);
+        ctx.fillStyle = '#f5d6b4'; ctx.beginPath(); ctx.arc(20, -20, 18, 0, 7); ctx.fill();
+        ctx.fillStyle = '#0d1b3e'; ctx.beginPath(); ctx.ellipse(20, -32, 22, 8, 0, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+
+    function updateHUD() {
+        const container = document.getElementById('hearts-container'); 
+        container.innerHTML = '❤'.repeat(gameState.lives) + '<span class="opacity-20">❤</span>'.repeat(5-gameState.lives);
+        document.getElementById('level-display').textContent = "CHIẾN DỊCH: CẤP " + gameState.level;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        if(gameState.level === 2 && !gameState.showQuestion) {
+            // Luôn phát âm thanh nổ súng khi nhấp chuột ở màn 2
+            audioManager.playEffect('gunshot'); 
+            gameState.muzzleFlash = 5; 
+
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left) * (800 / rect.width);
+            const currentQ = gameState.level2Questions[gameState.currentQuestion];
+            
+            gameState.enemies.forEach(en => {
+                if(!en.dead && Math.abs(mx - en.x) < 50) {
+                    if (en.answerIndex === currentQ.correct) { 
+                        en.dead = true; 
+                        audioManager.playEffect('correct');
+                        setTimeout(() => { 
+                            gameState.enemies = []; 
+                            gameState.currentQuestion++; 
+                        }, 600);
+                    } else { 
+                        audioManager.playEffect('wrong'); 
+                        en.dead = true; 
+                        gameState.lives--; 
+                        if(gameState.lives <= 0) endGame();
+                    }
+                }
+            });
+        }
+    });
+
+        init() {
+            if (!this.ctx) {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (!this.warMusic) {
+                this.warMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'); 
+                this.warMusic.loop = true;
+                this.warMusic.volume = 0.4;
+            }
+            if (!this.transitionMusic) {
+                this.transitionMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3');
+                this.transitionMusic.loop = true;
+                this.transitionMusic.volume = 0.5;
+            }
+        },
+
+        playEffect(freq, type = 'square', duration = 0.1, volume = 0.05) {
+            if (!this.ctx) return;
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, this.ctx.currentTime + duration);
+            gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        },
+
+        playBackgroundMusic(mode) {
+            if (!this.ctx) return;
+            if (this.currentMode === mode) return;
+            this.currentMode = mode;
+            if (this.warMusic) this.warMusic.pause();
+            if (this.transitionMusic) this.transitionMusic.pause();
+            if (mode === 'war') this.warMusic.play();
+            if (mode === 'transition') this.transitionMusic.play();
+        }
+    };
+
+    let gameState = {
+        active: false,
+        lives: 5,
+        scrollX: 0,
+        animFrame: 0,
+        currentQuestion: 0,
+        speed: 5.5,
+        player: { x: 100, y: 280, walkCycle: 0 },        airplanes: [],
+        bombs: [],
+        debris: [],
+        smoke: [],
+        fires: [],
+        explosions: [], // Hiệu ứng nổ mới rực rỡ
+        mountains: [],
+        clouds: [],
+        groundItems: [],
+        trenches: [{ x: 1500, triggered: false }, { x: 3000, triggered: false }, { x: 4500, triggered: false }],
+
+    document.getElementById('start-btn').onclick = () => { 
+        audioManager.init(); audioManager.playBGM('war');
+        document.getElementById('start-screen').classList.add('hidden'); gameState.active = true; 
+    };
+
+    setInterval(update, 1000/60);
+    draw();
+    
+    window.addEventListener('mousemove', (e) => {
+        cursor.style.left = e.clientX - 32 + 'px'; cursor.style.top = e.clientY - 32 + 'px';
+        if(gameState.level === 2) cursor.classList.remove('hidden'); else cursor.classList.add('hidden');
+    });
+
+    function triggerTransition(title, callback) {
+        gameState.transitioning = true; const screen = document.getElementById('transition-screen');
+        document.getElementById('transition-title').textContent = title; screen.classList.remove('hidden'); screen.style.opacity = 1;
+        setTimeout(() => { callback(); setTimeout(() => { screen.style.opacity = 0; setTimeout(() => { screen.classList.add('hidden'); gameState.transitioning = false; }, 500); }, 1000); }, 2000);
+    }
+  </script>
+ </body>
+</html>
