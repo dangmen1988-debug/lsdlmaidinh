@@ -18,7 +18,7 @@
     }
     .btn-military:hover { transform: translateY(-2px); filter: brightness(1.1); }
     .telegram { background: #fdf5e6; border: 2px solid #5d4e37; position: relative; }
-    #game-container { width: 800px; height: 450px; overflow: hidden; border: 8px solid #2a2318; border-radius: 12px; position: relative; background: #000; margin: auto; }
+    #game-container { width: 800px; height: 450px; overflow: hidden; border: 8px solid #2a2318; border-radius: 12px; position: relative; background: #000; }
     
     #player-question-bubble {
         position: absolute; background: rgba(255, 255, 255, 0.95); border: 3px solid #3d3225;
@@ -41,7 +41,7 @@
         <div id="hearts-container" class="flex text-red-500 text-xl"></div>
     </div>
     <div id="ammo-ui" class="hidden bg-black/60 px-4 py-2 rounded-full border border-amber-500/40 text-amber-400 font-black text-[10px] shadow-lg">
-        GIAO TRANH: <span id="ammo-count">BẮN KẺ ĐỊCH CÓ ĐÁP ÁN ĐÚNG</span>
+        GIAO TRANH: <span id="ammo-count">TIÊU DIỆT KẺ ĐỊCH CÓ ĐÁP ÁN SAI</span>
     </div>
    </div>
    <div id="level-display" class="absolute top-4 right-4 text-amber-200 text-[10px] font-black pointer-events-none bg-black/60 px-4 py-2 rounded border border-white/20 z-10 tracking-[0.2em] uppercase"></div>
@@ -98,13 +98,13 @@
         <h1 class="text-amber-600 text-8xl font-black drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)]">WW1</h1>
         <h2 class="text-amber-100 text-2xl font-black tracking-[0.4em] uppercase mt-[-10px]">Hành Trình Chi Tiết</h2>
     </div>
-    <button id="start-btn" class="btn-military px-24 py-8 text-3xl uppercase">Bắt đầu sứ mệnh</button>
+    <button id="start-btn" class="btn-military px-24 py-8 text-3xl uppercase animate-pulse">Bắt đầu sứ mệnh</button>
    </div>
 
    <div id="custom-cursor" class="fixed pointer-events-none w-16 h-16 hidden z-50">
         <svg viewBox="0 0 40 40" class="w-full h-full stroke-red-500 fill-none stroke-[2]">
             <circle cx="20" cy="20" r="15" opacity="0.4" stroke-dasharray="4 2"/>
-            <line x1="20" x2="20" y2="10" /><line x1="20" y1="30" x2="20" y2="40" />
+            <line x1="20" y1="0" x2="20" y2="10" /><line x1="20" y1="30" x2="20" y2="40" />
             <line x1="0" y1="20" x2="10" y2="20" /><line x1="30" y1="20" x2="40" y2="20" />
             <circle cx="20" cy="20" r="1.5" fill="red" stroke="none"/>
         </svg>
@@ -119,7 +119,6 @@
     const audioManager = {
         ctx: null, mainGain: null, bgmInterval: null,
         init() {
-            if (this.ctx) return;
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             this.mainGain = this.ctx.createGain(); this.mainGain.connect(this.ctx.destination);
             this.mainGain.gain.value = 0.3;
@@ -198,10 +197,7 @@
         ],
         level2Questions: [
             { q: "Sự kiện nào ở Nga năm 1917 làm thay đổi cục diện?", a: ["Cách mạng tháng Mười", "Nga đầu hàng Đức"], correct: 0, explanation: "Cách mạng thành công đưa nước Nga rút khỏi chiến tranh." },
-            { q: "Năm 1917, vì sao Mỹ quyết định tham gia chiến tranh?", a: ["Bảo vệ hòa bình", "Bảo vệ quyền lợi kinh tế"], correct: 1, explanation: "Mỹ tham chiến để đảm bảo vị thế và kinh tế khi cục diện đã rõ." },
-            { q: "Chiến thuật tác chiến đặc trưng nhất của WW1 là gì?", a: ["Chiến tranh hầm hào", "Tác chiến cơ động"], correct: 0, explanation: "Hệ thống chiến hào khổng lồ khiến cuộc chiến giằng co đẫm máu." },
-            { q: "Đế quốc nào được coi là hung hăng và là thủ phạm chính gây chiến?", a: ["Đế quốc Anh", "Đế quốc Đức", "Nước Pháp"], correct: 1, explanation: "Đức là kẻ đòi chia lại bản đồ thế giới mạnh mẽ nhất bằng vũ lực." },
-            { q: "Hậu quả nặng nề nhất về nhân mạng của Thế chiến I là gì?", a: ["10 triệu người chết", "Mất hết tài sản", "Thế giới chia làm hai"], correct: 0, explanation: "Cuộc chiến gây ra tổn thất kinh khủng về người, làm suy yếu toàn bộ châu Âu." }
+            { q: "Năm 1917, vì sao Mỹ quyết định tham gia chiến tranh?", a: ["Bảo vệ hòa bình", "Bảo vệ quyền lợi kinh tế"], correct: 1, explanation: "Mỹ tham chiến để đảm bảo vị thế và kinh tế khi cục diện đã rõ." }
         ],
         level3Questions: [
             { q: "Tướng quân: 'Tính chất cuối cùng của cuộc chiến này là gì?'", keywords: ["phi nghĩa", "xâm lược", "đế quốc"] },
@@ -399,19 +395,41 @@
         if(gameState.level === 2) {
             gameState.enemies.forEach(en => {
                 drawSoldier(en.x, en.y, '#3e4444', true);
-                ctx.fillStyle = 'white'; ctx.font = 'bold 16px Be Vietnam Pro'; ctx.textAlign='center';
-                ctx.fillText(en.label, en.x-40, en.y-45);
+                
+                // HIỂN THỊ CÂU TRẢ LỜI DƯỚI CHÂN KẺ ĐỊCH
+                if (!en.dead) {
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    
+                    // Vẽ khung nền cho câu trả lời
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                    const textWidth = ctx.measureText(en.text).width + 20;
+                    ctx.beginPath();
+                    ctx.roundRect(en.x - textWidth/2, en.y + 70, textWidth, 22, 5);
+                    ctx.fill();
+
+                    // Vẽ Label (A, B, C...)
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.font = 'bold 11px Be Vietnam Pro';
+                    ctx.fillText(en.label + ": ", en.x - textWidth/2 + 15, en.y + 85);
+
+                    // Vẽ Nội dung câu trả lời
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 10px Be Vietnam Pro';
+                    ctx.fillText(en.text, en.x + 10, en.y + 85);
+                    ctx.restore();
+                }
             });
         } else if(gameState.level === 3) {
             drawOfficer(650, 270);
         }
 
-        update();
         requestAnimationFrame(draw);
     }
 
     function drawSoldier(x, y, color, isEnemy, shooting) {
         const bounce = Math.sin(gameState.animFrame) * 3;
+        const walk = Math.sin(gameState.player.walkCycle) * 8;
         const blink = (gameState.player.eyeTimer % 180 < 10);
         
         ctx.save(); ctx.translate(x, y + bounce);
@@ -488,25 +506,22 @@
 
     function updateHUD() {
         const container = document.getElementById('hearts-container'); 
-        if(container) container.innerHTML = '❤'.repeat(gameState.lives) + '<span class="opacity-20">❤</span>'.repeat(Math.max(0, 5-gameState.lives));
-        const lvlDisp = document.getElementById('level-display');
-        if(lvlDisp) lvlDisp.textContent = "CHIẾN DỊCH: CẤP " + gameState.level;
+        container.innerHTML = '❤'.repeat(gameState.lives) + '<span class="opacity-20">❤</span>'.repeat(5-gameState.lives);
+        document.getElementById('level-display').textContent = "CHIẾN DỊCH: CẤP " + gameState.level;
     }
 
     canvas.addEventListener('mousedown', (e) => {
         if(gameState.level === 2 && !gameState.showQuestion) {
-            audioManager.init(); // Đảm bảo âm thanh được kích hoạt khi click
             audioManager.playEffect('gunshot'); gameState.muzzleFlash = 3; 
             const rect = canvas.getBoundingClientRect();
             const mx = (e.clientX - rect.left) * (800 / rect.width);
             const currentQ = gameState.level2Questions[gameState.currentQuestion];
-            if(!currentQ) return;
             gameState.enemies.forEach(en => {
                 if(!en.dead && Math.abs(mx - en.x) < 80) {
                     if (en.answerIndex === currentQ.correct) { 
                         en.dead = true; audioManager.playEffect('correct');
                         setTimeout(() => { gameState.enemies = []; gameState.currentQuestion++; }, 600);
-                    } else { audioManager.playEffect('wrong'); en.dead = true; gameState.lives--; if(gameState.lives <= 0) endGame(); }
+                    } else { audioManager.playEffect('wrong'); en.dead = true; gameState.lives--; if(gameState.lives<=0) endGame(); }
                 }
             });
         }
@@ -517,11 +532,12 @@
         document.getElementById('start-screen').classList.add('hidden'); gameState.active = true; 
     };
 
+    setInterval(update, 1000/60);
+    draw();
+    
     window.addEventListener('mousemove', (e) => {
-        if(cursor) {
-            cursor.style.left = e.clientX - 32 + 'px'; cursor.style.top = e.clientY - 32 + 'px';
-            if(gameState.level === 2) cursor.classList.remove('hidden'); else cursor.classList.add('hidden');
-        }
+        cursor.style.left = e.clientX - 32 + 'px'; cursor.style.top = e.clientY - 32 + 'px';
+        if(gameState.level === 2) cursor.classList.remove('hidden'); else cursor.classList.add('hidden');
     });
 
     function triggerTransition(title, callback) {
@@ -529,9 +545,6 @@
         document.getElementById('transition-title').textContent = title; screen.classList.remove('hidden'); screen.style.opacity = 1;
         setTimeout(() => { callback(); setTimeout(() => { screen.style.opacity = 0; setTimeout(() => { screen.classList.add('hidden'); gameState.transitioning = false; }, 500); }, 1000); }, 2000);
     }
-
-    // Khởi động vòng lặp vẽ
-    requestAnimationFrame(draw);
   </script>
  </body>
 </html>
